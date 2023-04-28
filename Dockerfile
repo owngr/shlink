@@ -14,45 +14,45 @@ WORKDIR /etc/shlink
 
 # Install required PHP extensions
 RUN \
-    # Temp install dev dependencies needed to compile the extensions
-    apk add --no-cache --virtual .dev-deps sqlite-dev postgresql-dev icu-dev libzip-dev zlib-dev libpng-dev linux-headers && \
-    docker-php-ext-install -j"$(nproc)" pdo_mysql pdo_pgsql intl calendar sockets bcmath zip gd && \
-    apk add --no-cache sqlite-libs && \
-    docker-php-ext-install -j"$(nproc)" pdo_sqlite && \
-    # Remove temp dev extensions, and install prod equivalents that are required at runtime
-    apk del .dev-deps && \
-    apk add --no-cache postgresql icu libzip libpng
+  # Temp install dev dependencies needed to compile the extensions
+  apk add --no-cache --virtual .dev-deps sqlite-dev postgresql-dev icu-dev libzip-dev zlib-dev libpng-dev linux-headers && \
+  docker-php-ext-install -j"$(nproc)" pdo_mysql pdo_pgsql intl calendar sockets bcmath zip gd && \
+  apk add --no-cache sqlite-libs && \
+  docker-php-ext-install -j"$(nproc)" pdo_sqlite && \
+  # Remove temp dev extensions, and install prod equivalents that are required at runtime
+  apk del .dev-deps && \
+  apk add --no-cache postgresql icu libzip libpng supercronic
 
 # Install openswoole and sqlsrv driver for x86_64 builds
 RUN apk add --no-cache --virtual .phpize-deps ${PHPIZE_DEPS} unixodbc-dev && \
-    if [ "$SHLINK_RUNTIME" == 'openswoole' ]; then \
-        pecl install openswoole-${OPENSWOOLE_VERSION} && \
-        docker-php-ext-enable openswoole ; \
-    fi; \
-    if [ $(uname -m) == "x86_64" ]; then \
-      wget https://download.microsoft.com/download/${MS_ODBC_DOWNLOAD}/msodbcsql${MS_ODBC_SQL_VERSION}-1_amd64.apk && \
-      apk add --allow-untrusted msodbcsql${MS_ODBC_SQL_VERSION}-1_amd64.apk && \
-      pecl install pdo_sqlsrv-${PDO_SQLSRV_VERSION} && \
-      docker-php-ext-enable pdo_sqlsrv && \
-      rm msodbcsql${MS_ODBC_SQL_VERSION}-1_amd64.apk ; \
-    fi; \
-    apk del .phpize-deps
+  if [ "$SHLINK_RUNTIME" == 'openswoole' ]; then \
+  pecl install openswoole-${OPENSWOOLE_VERSION} && \
+  docker-php-ext-enable openswoole ; \
+  fi; \
+  if [ $(uname -m) == "x86_64" ]; then \
+  wget https://download.microsoft.com/download/${MS_ODBC_DOWNLOAD}/msodbcsql${MS_ODBC_SQL_VERSION}-1_amd64.apk && \
+  apk add --allow-untrusted msodbcsql${MS_ODBC_SQL_VERSION}-1_amd64.apk && \
+  pecl install pdo_sqlsrv-${PDO_SQLSRV_VERSION} && \
+  docker-php-ext-enable pdo_sqlsrv && \
+  rm msodbcsql${MS_ODBC_SQL_VERSION}-1_amd64.apk ; \
+  fi; \
+  apk del .phpize-deps
 
 # Install shlink
 FROM base as builder
 COPY . .
 COPY --from=composer:2 /usr/bin/composer ./composer.phar
 RUN apk add --no-cache git && \
-    # FIXME Ignoring ext-openswoole platform req, as it makes install fail with roadrunner, even though it's a dev dependency and we are passing --no-dev
-    php composer.phar install --no-dev --prefer-dist --optimize-autoloader --no-progress --no-interaction --ignore-platform-req=ext-openswoole && \
-    if [ "$SHLINK_RUNTIME" == 'openswoole' ]; then \
-        php composer.phar remove spiral/roadrunner spiral/roadrunner-jobs spiral/roadrunner-cli spiral/roadrunner-http --with-all-dependencies --update-no-dev --optimize-autoloader --no-progress --no-interaction ; \
-    elif [ "$SHLINK_RUNTIME" == 'rr' ]; then \
-        php composer.phar remove mezzio/mezzio-swoole --with-all-dependencies --update-no-dev --optimize-autoloader --no-progress --no-interaction ; \
-    fi; \
-    php composer.phar clear-cache && \
-    rm -r docker composer.* && \
-    sed -i "s/%SHLINK_VERSION%/${SHLINK_VERSION}/g" config/autoload/app_options.global.php
+  # FIXME Ignoring ext-openswoole platform req, as it makes install fail with roadrunner, even though it's a dev dependency and we are passing --no-dev
+  php composer.phar install --no-dev --prefer-dist --optimize-autoloader --no-progress --no-interaction --ignore-platform-req=ext-openswoole && \
+  if [ "$SHLINK_RUNTIME" == 'openswoole' ]; then \
+  php composer.phar remove spiral/roadrunner spiral/roadrunner-jobs spiral/roadrunner-cli spiral/roadrunner-http --with-all-dependencies --update-no-dev --optimize-autoloader --no-progress --no-interaction ; \
+  elif [ "$SHLINK_RUNTIME" == 'rr' ]; then \
+  php composer.phar remove mezzio/mezzio-swoole --with-all-dependencies --update-no-dev --optimize-autoloader --no-progress --no-interaction ; \
+  fi; \
+  php composer.phar clear-cache && \
+  rm -r docker composer.* && \
+  sed -i "s/%SHLINK_VERSION%/${SHLINK_VERSION}/g" config/autoload/app_options.global.php
 
 
 # Prepare final image
@@ -61,9 +61,9 @@ LABEL maintainer="Alejandro Celaya <alejandro@alejandrocelaya.com>"
 
 COPY --from=builder /etc/shlink .
 RUN ln -s /etc/shlink/bin/cli /usr/local/bin/shlink && \
-    if [ "$SHLINK_RUNTIME" == 'rr' ]; then \
-      php ./vendor/bin/rr get --no-interaction --location bin/ && chmod +x bin/rr ; \
-    fi;
+  if [ "$SHLINK_RUNTIME" == 'rr' ]; then \
+  php ./vendor/bin/rr get --no-interaction --location bin/ && chmod +x bin/rr ; \
+  fi;
 
 # Expose default port
 EXPOSE 8080
